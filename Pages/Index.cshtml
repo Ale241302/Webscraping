@@ -1,0 +1,246 @@
+﻿    @page
+    @model WebScraping.Pages.IndexModel
+    @{
+        ViewData["Title"] = "Inicio";
+    }
+
+    <!-- CSS de Bootstrap y DataTables -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/v/bs5/dt-1.13.1/datatables.min.css">
+
+    <!-- Scripts de jQuery y DataTables -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.datatables.net/v/bs5/dt-1.13.1/datatables.min.js"></script>
+
+
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .welcome-card {
+            max-width: 600px;
+            margin: 50px auto;
+        }
+
+            .welcome-card .card {
+                padding: 30px;
+                border: none;
+                border-radius: 10px;
+                box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+            }
+
+            .welcome-card .btn-primary {
+                background-color: #007bff;
+                border: none;
+                border-radius: 30px;
+                padding: 10px 20px;
+            }
+
+            .welcome-card h1 {
+                font-size: 2em;
+                margin-bottom: 20px;
+            }
+
+            .welcome-card p {
+                font-size: 1.1em;
+            }
+   
+           
+
+        
+    </style>
+
+    <div class="welcome-card">
+        <div class="card text-center">
+            <h1 class="display-4">Bienvenido, @User.Identity.Name</h1>
+            <p class="lead">Selecciona un Network y país, haz clic en el botón para iniciar el proceso de obtención de datos.</p>
+
+            <form method="get">
+            <p>Network</p>
+            <div class="form-group">
+                <select asp-for="Source" class="form-control" style="max-width: 300px; margin: 0 auto;"  onchange="this.form.submit()" id="sourceSelect">
+                    <option value="WCA World Directory">WCA</option>
+                    <option value="GLA">GLA</option>
+                    <option value="JCTRANS">JCTRANS</option>
+                    <option value="DF">DF-Alliance</option>
+                </select>
+            </div>
+            <br />
+            <p>País</p>
+                <div class="form-group">
+                <select asp-for="SelectedCountry" asp-items="Model.CountryList" class="form-control" style="max-width: 300px; margin: 0 auto;" onchange="this.form.submit()" id="countrySelect"> 
+
+                </select>
+                </div>
+
+            </form>
+
+            <form method="post" onsubmit="showLoadingSpinner()">
+                <input type="hidden" asp-for="SelectedCountry" />
+              
+            @if (!string.IsNullOrEmpty(Model.SelectedCountry))
+            {
+                @if (!Model.HasRecords)
+                {
+                    <button id="scrapingButton" type="submit" class="btn btn-primary btn-lg mt-3">
+                        Obtener Datos
+                    </button>
+                }
+                else
+                {
+                    <button id="scrapingButton" type="submit" class="btn btn-primary btn-lg mt-3">
+                        Actualizar Datos
+                    </button>
+                }
+            }
+            </form>
+        <script>
+            function showLoadingSpinner() {
+                var button = document.getElementById("scrapingButton");
+                var select = document.getElementById("countrySelect");
+                var select2 = document.getElementById("sourceSelect");
+                // Cambiar el texto del botón y deshabilitarlo
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cargando...';
+                button.disabled = true;
+
+                // Deshabilitar el campo select
+                if (select) {
+                    select.disabled = true;
+                }
+                if (select2) {
+                    select2.disabled = true;
+                }
+            }
+        </script>
+
+            @if (string.IsNullOrEmpty(Model.SelectedCountry))
+            {
+           
+                <form method="post" asp-page-handler="ExportAllData">
+                <br />
+                <p class="lead">Haz clic en el botón para exportar todos los datos.</p>
+                <input type="hidden" id="sourceHidden" asp-for="Source" />
+                    <button type="submit" class="btn btn-success btn-lg mt-3">Exportar Datos</button>
+                </form>
+            }
+            @if (Model.HasRecords)
+            {
+                <form method="post" asp-page-handler="ExportData">
+                    <input type="hidden" asp-for="SelectedCountry" />
+                    <input type="hidden" asp-for="Source" />
+                    <button type="submit" class="btn btn-success btn-lg mt-3">Exportar Datos</button>
+                </form>
+                 <p class="mt-3">N° de Registros: @Model.RecordCount</p>
+                @if (Model.LastScrapingDate.HasValue)
+                {
+                    <p class="mt-3">Última Actualización: @Model.LastScrapingDate.Value.ToString("dd/MM/yyyy")</p>
+                }
+                //<p class="mt-3">Cuota Diaria Registros Restante: @Model.DailyQuotaRemaining</p>
+
+
+            }
+            @if (!string.IsNullOrEmpty(Model.Message))
+            {
+                <div class="alert @GetAlertClass(Model.Message) mt-4" role="alert">
+                    @Model.Message
+                </div>
+            }
+
+            @functions {
+                private string GetAlertClass(string message)
+                {
+                    if (message.Contains("No se encontraron registros para el país"))
+                    {
+                        return "alert-warning"; // Fondo amarillo
+                    }
+                    else if (message.Contains("Obtención de datos completado exitosamente para el país"))
+                    {
+                        return "alert-info"; // Color actual (azul claro de Bootstrap)
+                    }
+                    else
+                    {
+                        return "alert-danger"; // Fondo rojo para otros mensajes
+                    }
+                }
+            }
+
+        </div>
+    </div>
+
+    @if (Model.CompanyList != null && Model.CompanyList.Count > 0)
+    {
+        <div class="container mt-5">
+        <h3>Empresas en @Model.SelectedCountryName</h3>
+            <div class="mb-3">
+                <input type="text" id="searchInput" class="form-control" placeholder="Buscar empresa por nombre...">
+            </div>
+            <div class="table-responsive-container">
+                <table id="companyTable" class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Sitio web</th>
+                            <th>Dirección</th>  
+                            <th>Contacto</th>
+                            <th>Correo</th>
+                            <th>Cargo</th>
+                            <th>Telefono</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var company in Model.CompanyList)
+                        {
+                        <tr>
+                            <td>@(company.Name.Split('(')[0].Trim())</td>
+                            <td><a href="@company.Href" target="_blank">@company.Href</a></td>
+                            <td>@company.Address</td>
+                            <td>@(company.NameContact.Split(',')[0].Trim())</td>
+                            <td>@(company.Emailcontact.Split(',')[0].Trim())</td> <!-- Muestra solo el primer correo -->
+                            <td>@(company.Titlecontact.Split(',')[0].Trim())</td>
+                            
+                            <td>@(company.Mobile.Split(',')[0].Trim())</td> <!-- Muestra solo el primer teléfono -->
+                        </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+
+
+    <script>
+    // Sincronizar el valor del select con el hidden input
+    function syncSourceHidden() {
+        document.getElementById('sourceHidden').value = document.getElementById('sourceSelect').value;
+    }
+
+    // Establecer el valor inicial al cargar la página
+    document.getElementById('sourceHidden').value = document.getElementById('sourceSelect').value;
+        document.getElementById("searchInput").addEventListener("keyup", function () {
+            var searchValue = this.value.toLowerCase();
+            var table = document.getElementById("companyTable");
+            var rows = table.getElementsByTagName("tr");
+
+            for (var i = 1; i < rows.length; i++) {
+                var nameCell = rows[i].getElementsByTagName("td")[0]; // Primera columna es el nombre de la empresa
+                if (nameCell) {
+                    var nameText = nameCell.textContent || nameCell.innerText;
+                    rows[i].style.display = nameText.toLowerCase().indexOf(searchValue) > -1 ? "" : "none";
+                }
+            }
+        });
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            $('#companyTable').DataTable({
+                "pageLength": 10, // Muestra 10 registros por página
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/Spanish.json" // Traduce DataTables al español
+                }
+            });
+        });
+    </script>
